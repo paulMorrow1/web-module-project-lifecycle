@@ -3,67 +3,102 @@ import axios from "axios";
 import TodoList from "./TodoList";
 import Form from "./Form";
 
-// const URL = "http://localhost:9000/api/todos"
+const URL = "http://localhost:9000/api/todos";
 
 export default class App extends React.Component {
   state = {
     todos: [],
+    error: "",
+    todoNameInput: "",
+    displayCompleteds: true,
   };
 
-  addTodo = (e, name) => {
+  onTodoNameInputChange = (event) => {
+    const { value } = event.target;
+    this.setState({ ...this.state, todoNameInput: value });
+  };
+
+  resetForm = () => {
+    this.setState({ ...this.state, todoNameInput: "" });
+  };
+
+  setAxiosResError = (err) => {
+    this.setState({ ...this.state, error: err.response.data.message });
+  };
+
+  postNewTodo = () => {
     axios
-      .post("http://localhost:9000/api/todos", { name: name })
+      .post(URL, { name: this.state.todoNameInput })
       .then((res) => {
-        console.log("Post Data", res);
         this.setState({
-          todos: [
-            ...this.state.todos,
-            {
-              id: Math.random(),
-              name: res.data.data,
-              finished: false,
-            },
-          ],
+          ...this.state,
+          todos: this.state.todos.concat(res.data.data),
         });
-      });
+        this.resetForm();
+      })
+      .catch(this.setAxiosResError);
   };
 
-  deleteTodo = (id) => {
-    const todoListAfterDeletion = this.state.todos.filter((todo) => {
-      if (todo.id === id) return null;
-      return todo;
-    });
-    this.setState((state) => {
-      return {
-        ...state,
-        todos: todoListAfterDeletion,
-      };
-    });
+  onTodoFormSubmit = (event) => {
+    event.preventDefault();
+    this.postNewTodo();
   };
 
-  toggleTodo = (itemId) => {
+  fetchAllTodos = () => {
+    axios
+      .get(URL)
+      .then((res) => {
+        this.setState({ ...this.state, todos: res.data.data });
+      })
+      .catch(this.setAxiosResError);
+  };
+
+  toggleCompleted = (id) => () => {
+    axios
+      .patch(`${URL}/${id}`)
+      .then((res) => {
+        this.setState({
+          ...this.state,
+          todos: this.state.todos.map((todo) => {
+            if (todo.id !== id) {
+              return todo;
+            }
+            return res.data.data;
+          }),
+        });
+      })
+      .catch(this.setAxiosResError);
+  };
+
+  toggleDisplayCompleteds = () => {
     this.setState({
-      todos: this.state.todos.map((todo) => {
-        if (itemId === id) {
-          return {
-            ...item,
-            finsihed: !item.finished,
-          };
-        }
-        return item;
-      }),
+      ...this.state,
+      displayCompleteds: !this.state.displayCompleteds,
     });
   };
+
+  componentDidMount() {
+    //fetch all Todo's from server
+    this.fetchAllTodos();
+  }
 
   render() {
     return (
       <div>
+        <div id="error">Error: {this.state.error}</div>
         <TodoList
           todos={this.state.todos}
-          toggleTodo={this.toggleTodo}
-          deleteTodo={this.deleteTodo}
+          displayCompleteds={this.state.displayCompleteds}
+          toggleCompleted={this.toggleCompleted}
         />
-        <Form addTodo={this.addTodo} />
+
+        <Form
+          onTodoFormSubmit={this.onTodoFormSubmit}
+          onTodoNameInputChange={this.onTodoNameInputChange}
+          toggleDisplayCompleteds={this.toggleDisplayCompleteds}
+          todoNameInput={this.state.todoNameInput}
+          displayCompleteds={this.state.displayCompleteds}
+        />
       </div>
     );
   }
